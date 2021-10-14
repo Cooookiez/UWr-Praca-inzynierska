@@ -1,2 +1,3 @@
 # UWr-praca-inzynierska
-Praca inżynierska / Engineering thesis
+
+Praca Inżynierska / Engineering thesis
