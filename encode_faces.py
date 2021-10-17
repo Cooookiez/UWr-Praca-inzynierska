@@ -101,8 +101,8 @@ def encode_face(name, path2root=PATH_TO_ROOT):
 
 def encode_for_all(path2root=PATH_TO_ROOT):
     # go to directory with people sub-directories
-    person_dir_path = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
-    os.chdir(person_dir_path)
+    people_dir_path = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
+    os.chdir(people_dir_path)
     # get people names
     names = list(filter(os.path.isdir, os.listdir(os.curdir)))
     print()
