@@ -5,18 +5,18 @@ from PIL import Image
 import warnings
 import cv2
 import numpy as np
-from ST7789 import ST7789
+# from ST7789 import ST7789
 
 SPI_SPEED_MHZ = 80
 
-st7789 = ST7789(
-    rotation=90*2,  # Needed to display the right way up on Pirate Audio
-    port=0,       # SPI port
-    cs=1,         # SPI port Chip-select channel
-    dc=9,         # BCM pin used for data/command
-    backlight=13,
-    spi_speed_hz=SPI_SPEED_MHZ * 1000 * 1000
-)
+# st7789 = ST7789(
+#     rotation=90*2,  # Needed to display the right way up on Pirate Audio
+#     port=0,       # SPI port
+#     cs=1,         # SPI port Chip-select channel
+#     dc=9,         # BCM pin used for data/command
+#     backlight=13,
+#     spi_speed_hz=SPI_SPEED_MHZ * 1000 * 1000
+# )
 
 path = {
     "personal_path": {}
@@ -101,7 +101,7 @@ if __name__ == '__main__':
     encode_known_peapel()
 
     # Get a reference to webcam #0 (the default one)
-    video_capture = cv2.VideoCapture(0)
+    video_capture = cv2.VideoCapture(1)
 
     print("pres 'q' to exit")
 
@@ -112,6 +112,7 @@ if __name__ == '__main__':
 
         # Resize frame of video to 1/4 size for faster face recognition processing
         small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        # small_frame = frame
 
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = small_frame[:, :, ::-1]
@@ -158,10 +159,10 @@ if __name__ == '__main__':
         cv2.imshow('Video', frame)
 
         # mini led
-        miniLedImage = np.array(frame)
-        miniLedImage = cv2.resize(miniLedImage, (240, 240))
-        pil_image=Image.fromarray(miniLedImage)
-        st7789.display(pil_image)
+        # miniLedImage = np.array(frame)
+        # miniLedImage = cv2.resize(miniLedImage, (240, 240))
+        # pil_image=Image.fromarray(miniLedImage)
+        # st7789.display(pil_image)
             
         # Hit 'q' on the keyboard to quit!
         if cv2.waitKey(1) & 0xFF == ord('q'):
