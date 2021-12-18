@@ -15,18 +15,18 @@ PATH_TO_ROOT = os.getcwd()
 # (the default one)
 # for mac: 1
 # for pi: 0
-CAM_REF = 0
+CAM_REF = 1
 
 SPI_SPEED_MHZ = 80
 
-st7789 = ST7789(
-    rotation=90*2,  # Needed to display the right way up on Pirate Audio
-    port=0,       # SPI port
-    cs=1,         # SPI port Chip-select channel
-    dc=9,         # BCM pin used for data/command
-    backlight=13,
-    spi_speed_hz=SPI_SPEED_MHZ * 1000 * 1000
-)
+# st7789 = ST7789(
+#     rotation=90*2,  # Needed to display the right way up on Pirate Audio
+#     port=0,       # SPI port
+#     cs=1,         # SPI port Chip-select channel
+#     dc=9,         # BCM pin used for data/command
+#     backlight=13,
+#     spi_speed_hz=SPI_SPEED_MHZ * 1000 * 1000
+# )
 
 def load_encoded_files(path2root=PATH_TO_ROOT):
     # go to directory with people sub-directories & get people names
@@ -86,7 +86,8 @@ def start_cam_and_staff(known_face):
         ret, frame = video_capture.read()
 
         # Resize frame of video to 1/4 size for faster face recognition processing
-        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        # small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
 
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = small_frame[:, :, ::-1]
@@ -115,10 +116,10 @@ def start_cam_and_staff(known_face):
         # Display the results
         for (top, right, bottom, left), name in zip(face_locations, face_names):
             # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-            top *= 4
-            right *= 4
-            bottom *= 4
-            left *= 4
+            top *= 2
+            right *= 2
+            bottom *= 2
+            left *= 2
 
             # Draw a box around the face
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
@@ -136,7 +137,7 @@ def start_cam_and_staff(known_face):
         miniLedImage = np.array(frame)
         miniLedImage = cv2.resize(miniLedImage, (240, 240))
         pil_image=Image.fromarray(miniLedImage)
-        st7789.display(pil_image)
+        # st7789.display(pil_image)
             
         # Hit 'q' on the keyboard to quit!
         if cv2.waitKey(1) & 0xFF == ord('q'):
