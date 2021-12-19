@@ -5,11 +5,17 @@ import cv2
 import time
 import face_recognition
 from PIL import Image
+import threading
 # from ST7789 import ST7789
 
 KNOW_PEOPLE_DIR_PATH_NAME = "known_people"
 JSON_FILE_NAME = "faces.json"
+UNKNOWN_NAME = "Unknown"
 PATH_TO_ROOT = os.getcwd()
+ALERT_DELAY_IGNORE = 5 # seconds
+ALERT_PEOPLE = {}
+face_locations = []
+face_encodings = []
 
 # Get a reference to webcam #
 # (the default one)
@@ -70,12 +76,57 @@ def load_encoded_files(path2root=PATH_TO_ROOT):
 
     return known_face
 
+def encodeThisFrameFaces(frame):
+    timeStart = time.time()
+    # Find all the faces and face encodings in the current frame of video
+    face_locations = face_recognition.face_locations(frame)
+    face_encodings = face_recognition.face_encodings(frame, face_locations)
+
+    face_names = []
+    for face_encoding in face_encodings:
+        # See if the face is a match for the known face(s)
+        matches = face_recognition.compare_faces(known_face["encodings"], face_encoding)
+        name = UNKNOWN_NAME
+
+        # Or instead, use the known face with the smallest distance to the new face
+        face_distances = face_recognition.face_distance(known_face["encodings"], face_encoding)
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            name = known_face["names"][best_match_index]
+
+        face_names.append(name)
+    # check if person desnt repeat too soon
+    face_names_to_alert = []
+    time_differences = {}
+    for regognized_face in face_names:
+        if regognized_face in ALERT_PEOPLE.keys():
+            # check last seen time
+            time_difference = time.time() - ALERT_PEOPLE[regognized_face]
+            time_differences[regognized_face] = time_difference
+            ALERT_PEOPLE[regognized_face] = time.time()
+            if time_difference >= ALERT_DELAY_IGNORE:
+                # notify
+                face_names_to_alert.append(regognized_face)
+                pass
+            else:
+                # skip
+                pass
+            pass
+        else:
+            # add to ALERT_PEOPLE
+            # notify
+            ALERT_PEOPLE[regognized_face] = time.time()
+            face_names_to_alert.append(regognized_face)
+            pass
+    print(f"[{threading.active_count()}] ", *face_names_to_alert, f" ({(time.time() - timeStart):.4}s)\t\t\t{time_differences}")
+    pass
+
 def start_cam_and_staff(known_face):
     video_capture = cv2.VideoCapture(CAM_REF)
 
     # Initialize some variables
-    face_locations = []
-    face_encodings = []
+    # face_locations = []
+    # face_encodings = []
     face_names = []
     process_this_frame = True
 
@@ -94,24 +145,28 @@ def start_cam_and_staff(known_face):
 
         # Only process every other frame of video to save time
         if process_this_frame:
-            # Find all the faces and face encodings in the current frame of video
-            face_locations = face_recognition.face_locations(rgb_small_frame)
-            face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+            timeStart = time.time()
+            thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
+            thread.start()
+            # print(f"threaded -- {(time.time() - timeStart):.4}s")
+            # # Find all the faces and face encodings in the current frame of video
+            # face_locations = face_recognition.face_locations(rgb_small_frame)
+            # face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
-            face_names = []
-            for face_encoding in face_encodings:
-                # See if the face is a match for the known face(s)
-                matches = face_recognition.compare_faces(known_face["encodings"], face_encoding)
-                name = "Unknown"
+            # face_names = []
+            # for face_encoding in face_encodings:
+            #     # See if the face is a match for the known face(s)
+            #     matches = face_recognition.compare_faces(known_face["encodings"], face_encoding)
+            #     name = "Unknown"
 
-                # Or instead, use the known face with the smallest distance to the new face
-                face_distances = face_recognition.face_distance(known_face["encodings"], face_encoding)
-                best_match_index = np.argmin(face_distances)
-                if matches[best_match_index]:
-                    name = known_face["names"][best_match_index]
+            #     # Or instead, use the known face with the smallest distance to the new face
+            #     face_distances = face_recognition.face_distance(known_face["encodings"], face_encoding)
+            #     best_match_index = np.argmin(face_distances)
+            #     if matches[best_match_index]:
+            #         name = known_face["names"][best_match_index]
 
-                face_names.append(name)
-            print(*face_names)
+            #     face_names.append(name)
+            # print(*face_names, f"-- {(time.time() - timeStart):.4}s")
 
         # Display the results
         for (top, right, bottom, left), name in zip(face_locations, face_names):
@@ -144,6 +199,7 @@ def start_cam_and_staff(known_face):
             break
 
         process_this_frame = not process_this_frame
+    thread.join()
 
 if __name__ == '__main__':
     known_face = load_encoded_files()
