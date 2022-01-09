@@ -8,10 +8,13 @@ import time
 import face_recognition
 import json
 import sys
+import gtts
 
 VALID_IMAGES_EXTENSIONS = [".jpg", ".jpeg", ".png"]
 KNOW_PEOPLE_DIR_PATH_NAME = "known_people"
 IMAGES_DIR_PATH_NAME = "images"
+WELCOMES_DIR_PATH_NAME = "welcomes"
+BASIC_WELCOME_FILE_NAME = "welcome01.mp3"
 JSON_FILE_NAME = "faces.json"
 PATH_TO_ROOT = os.getcwd()
 
@@ -27,7 +30,7 @@ def prepare_dir(name, path2root=PATH_TO_ROOT):
         if extension.lower() in VALID_IMAGES_EXTENSIONS:
             paths_to_images_in_wrong_dir[file] = os.path.join(person_dir_path, file)
 
-    # chech if subpath for pictures dos exist. otherwise create it
+    # chech if subpath for pictures does exist. otherwise create it
     images_dir = os.path.join(person_dir_path, IMAGES_DIR_PATH_NAME)
     if not os.path.isdir(images_dir): # path is not dir, create it
         # chechk if there is no file named "images". If is, delete it
@@ -35,6 +38,14 @@ def prepare_dir(name, path2root=PATH_TO_ROOT):
             os.remove(images_dir) # delete it
         os.chdir(person_dir_path)
         os.mkdir(IMAGES_DIR_PATH_NAME) # create directory "images"
+        
+    # chech if subpath for welcomes does exist. otherwise create it
+    welcomes_dir = os.path.join(person_dir_path, WELCOMES_DIR_PATH_NAME)
+    if not os.path.isdir(welcomes_dir):
+        if os.path.isfile(welcomes_dir):
+            os.remove(welcomes_dir)
+        os.chdir(person_dir_path)
+        os.mkdir(WELCOMES_DIR_PATH_NAME)
     
     # copy all images from current directory to "images" directory
     for item in paths_to_images_in_wrong_dir:
@@ -99,6 +110,32 @@ def encode_face(name, path2root=PATH_TO_ROOT):
         json.dump({name:face_encodings_no_np}, outfile)
     print("Saved")
 
+def create_welcome_voice_for_known_person(name, path2root=PATH_TO_ROOT):
+    person_dir_path = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME, name)
+    welcomes_dir = os.path.join(person_dir_path, WELCOMES_DIR_PATH_NAME)
+    basic_welcome_file = os.path.join(welcomes_dir, BASIC_WELCOME_FILE_NAME)
+    create_and_save_welcome_message(f"Witaj {name}", basic_welcome_file)
+
+def create_welcome_voice_for_unknown_person(path2root=PATH_TO_ROOT):
+    # create folder for unknow face
+    unknowe_dir_name = f"{WELCOMES_DIR_PATH_NAME}_unknown"
+    know_people_dir = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
+    unknown_dir_path = os.path.join(know_people_dir, unknowe_dir_name)
+    if not os.path.isdir(unknown_dir_path):
+        if os.path.isfile(unknown_dir_path):
+            os.remove(unknown_dir_path)
+        os.chdir(know_people_dir)
+        os.mkdir(unknowe_dir_name)
+    
+    # create welocme message
+    file_path = os.path.join(unknown_dir_path, BASIC_WELCOME_FILE_NAME)
+    create_and_save_welcome_message("Witaj nieznajomy nieznajoma", file_path)
+
+def create_and_save_welcome_message(message, path):
+    tts = gtts.gTTS(message, lang='pl')
+    tts.save(path)
+    print("[mp3] create?")
+
 def encode_for_all(path2root=PATH_TO_ROOT):
     # go to directory with people sub-directories
     people_dir_path = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
@@ -116,18 +153,21 @@ def encode_for_all(path2root=PATH_TO_ROOT):
     pass
 
 def encode_for(name, path2root=PATH_TO_ROOT):
-    # preparing files
-    # print(f"Start preparing files", end="\t")
-    # ts = time.time()
-    prepare_dir(name)
-    # print(f"Finiszed in {(time.time() - ts):.4} seconds!")
+    if (name == "welcomes_unknown"):
+        pass
+    else:
+        # preparing files
+        # print(f"Start preparing files", end="\t")
+        # ts = time.time()
+        prepare_dir(name)
+        # print(f"Finiszed in {(time.time() - ts):.4} seconds!")
 
-    # encoding
-    print(f"Start encoding \"{name}\":")
-    ts = time.time()
-    encode_face(name)
-    print(f"Finiszed in {(time.time() - ts):.4} seconds!")
-    pass
+        # encoding
+        print(f"Start encoding \"{name}\":")
+        ts = time.time()
+        encode_face(name)
+        create_welcome_voice_for_known_person(name)
+        print(f"Finiszed in {(time.time() - ts):.4} seconds!")
 
 def check_if_person_exist(name, path2root=PATH_TO_ROOT):
     # get person directory path
@@ -140,11 +180,13 @@ if __name__ == '__main__':
     argc = len(sys.argv)
     if argc == 1: # encode ALL people
         encode_for_all()
+        create_welcome_voice_for_unknown_person()
     elif argc == 2: # encode SINGLE person
         name = sys.argv[1]
         if check_if_person_exist(name):
             print()
             encode_for(name)
+            create_welcome_voice_for_unknown_person()
         else:
             print(f"There is no \"{name}\" folder in {KNOW_PEOPLE_DIR_PATH_NAME}")
     else:

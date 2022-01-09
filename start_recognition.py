@@ -6,7 +6,6 @@ import time
 import face_recognition
 from PIL import Image
 import threading
-# from ST7789 import ST7789
 
 KNOW_PEOPLE_DIR_PATH_NAME = "known_people"
 JSON_FILE_NAME = "faces.json"
@@ -24,15 +23,6 @@ face_encodings = []
 CAM_REF = 1
 
 SPI_SPEED_MHZ = 80
-
-# st7789 = ST7789(
-#     rotation=90*2,  # Needed to display the right way up on Pirate Audio
-#     port=0,       # SPI port
-#     cs=1,         # SPI port Chip-select channel
-#     dc=9,         # BCM pin used for data/command
-#     backlight=13,
-#     spi_speed_hz=SPI_SPEED_MHZ * 1000 * 1000
-# )
 
 def load_encoded_files(path2root=PATH_TO_ROOT):
     # go to directory with people sub-directories & get people names
@@ -119,6 +109,16 @@ def encodeThisFrameFaces(frame):
             face_names_to_alert.append(regognized_face)
             pass
     print(f"[{threading.active_count()}] ", *face_names_to_alert, f" ({(time.time() - timeStart):.4}s)\t\t\t{time_differences}")
+    
+    for face in face_names_to_alert:
+        say_hello(face)
+    pass
+
+def say_hello(name):
+    if name == "":
+        pass
+    else:
+        pass
     pass
 
 def start_cam_and_staff(known_face):
@@ -145,7 +145,7 @@ def start_cam_and_staff(known_face):
 
         # Only process every other frame of video to save time
         if process_this_frame:
-            timeStart = time.time()
+            encodeThisFrameFaces(rgb_small_frame)
             thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
             thread.start()
             # print(f"threaded -- {(time.time() - timeStart):.4}s")
