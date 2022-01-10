@@ -6,6 +6,7 @@ import time
 import face_recognition
 import threading
 import random
+import pygame
 from PIL import Image
 from playsound import playsound
 
@@ -23,7 +24,7 @@ face_encodings = []
 # (the default one)
 # for mac: 1
 # for pi: 0
-CAM_REF = 1
+CAM_REF = 0
 
 SPI_SPEED_MHZ = 80
 
@@ -137,8 +138,13 @@ def say_hello(name, path2root=PATH_TO_ROOT):
         
         # rand file to play
         mp3_to_paly = random.choice(mp3s)
-        print(mp3_to_paly)        
-        playsound(mp3_to_paly)
+        print(mp3_to_paly)
+        
+        # play      
+        # playsound(mp3_to_paly)
+        pygame.mixer.init()
+        pygame.mixer.music.load(mp3_to_paly)
+        pygame.mixer.music.play()
     pass
 
 def start_cam_and_staff(known_face):
@@ -187,17 +193,17 @@ def start_cam_and_staff(known_face):
 
             
         # Display the resulting image
-        cv2.imshow('Video', frame)
+        # cv2.imshow('Video', frame)
 
         # mini led
-        miniLedImage = np.array(frame)
-        miniLedImage = cv2.resize(miniLedImage, (240, 240))
-        pil_image=Image.fromarray(miniLedImage)
+        # miniLedImage = np.array(frame)
+        # miniLedImage = cv2.resize(miniLedImage, (240, 240))
+        # pil_image=Image.fromarray(miniLedImage)
         # st7789.display(pil_image)
             
         # Hit 'q' on the keyboard to quit!
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     break
 
         process_this_frame = not process_this_frame
     # thread.join()
