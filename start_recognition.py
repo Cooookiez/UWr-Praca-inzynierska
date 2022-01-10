@@ -4,12 +4,15 @@ import numpy as np
 import cv2
 import time
 import face_recognition
-from PIL import Image
 import threading
+import random
+from PIL import Image
+from playsound import playsound
 
 KNOW_PEOPLE_DIR_PATH_NAME = "known_people"
 JSON_FILE_NAME = "faces.json"
 UNKNOWN_NAME = "Unknown"
+WELCOMES_DIR_PATH_NAME = "welcomes"
 PATH_TO_ROOT = os.getcwd()
 ALERT_DELAY_IGNORE = 5 # seconds
 ALERT_PEOPLE = {}
@@ -33,6 +36,8 @@ def load_encoded_files(path2root=PATH_TO_ROOT):
     # get path to faces.json
     encoded_faces_json_path = []
     for name in names:
+        if name == "welcomes_unknown":
+            continue
         encoded_faces_json_path.append(
             os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME, name, JSON_FILE_NAME)
         )
@@ -114,11 +119,26 @@ def encodeThisFrameFaces(frame):
         say_hello(face)
     pass
 
-def say_hello(name):
-    if name == "":
+def say_hello(name, path2root=PATH_TO_ROOT):
+    if name == "Unknown":
         pass
     else:
-        pass
+        path_to_welcomes_for_name = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME, name, WELCOMES_DIR_PATH_NAME)
+        
+        # get mp3's
+        mp3s = []
+        for file in os.listdir(path_to_welcomes_for_name):
+            print(file)
+            extension = os.path.splitext(file)[1] # extension of file
+            print(extension)
+            if extension.lower() == ".mp3":
+                mp3s.append(os.path.join(path_to_welcomes_for_name, file))
+        print(mp3s)        
+        
+        # rand file to play
+        mp3_to_paly = random.choice(mp3s)
+        print(mp3_to_paly)        
+        playsound(mp3_to_paly)
     pass
 
 def start_cam_and_staff(known_face):
@@ -146,27 +166,8 @@ def start_cam_and_staff(known_face):
         # Only process every other frame of video to save time
         if process_this_frame:
             encodeThisFrameFaces(rgb_small_frame)
-            thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
-            thread.start()
-            # print(f"threaded -- {(time.time() - timeStart):.4}s")
-            # # Find all the faces and face encodings in the current frame of video
-            # face_locations = face_recognition.face_locations(rgb_small_frame)
-            # face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
-
-            # face_names = []
-            # for face_encoding in face_encodings:
-            #     # See if the face is a match for the known face(s)
-            #     matches = face_recognition.compare_faces(known_face["encodings"], face_encoding)
-            #     name = "Unknown"
-
-            #     # Or instead, use the known face with the smallest distance to the new face
-            #     face_distances = face_recognition.face_distance(known_face["encodings"], face_encoding)
-            #     best_match_index = np.argmin(face_distances)
-            #     if matches[best_match_index]:
-            #         name = known_face["names"][best_match_index]
-
-            #     face_names.append(name)
-            # print(*face_names, f"-- {(time.time() - timeStart):.4}s")
+            # thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
+            # thread.start()
 
         # Display the results
         for (top, right, bottom, left), name in zip(face_locations, face_names):
@@ -199,7 +200,7 @@ def start_cam_and_staff(known_face):
             break
 
         process_this_frame = not process_this_frame
-    thread.join()
+    # thread.join()
 
 if __name__ == '__main__':
     known_face = load_encoded_files()
