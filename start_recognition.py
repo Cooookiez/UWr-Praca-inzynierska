@@ -10,23 +10,19 @@ import pygame
 from PIL import Image
 from playsound import playsound
 
-KNOW_PEOPLE_DIR_PATH_NAME = "known_people"
-JSON_FILE_NAME = "faces.json"
-UNKNOWN_NAME = "Unknown"
-WELCOMES_DIR_PATH_NAME = "welcomes"
+import config
+
+# Initialize some variablesQ
+KNOW_PEOPLE_DIR_PATH_NAME = config.KNOW_PEOPLE_DIR_PATH_NAME
+JSON_FILE_NAME = config.JSON_FILE_NAME
+UNKNOWN_NAME = config.UNKNOWN_NAME
+WELCOMES_DIR_PATH_NAME = config.WELCOMES_DIR_PATH_NAME
+ALERT_DELAY_IGNORE = config.ALERT_DELAY_IGNORE
 PATH_TO_ROOT = os.getcwd()
-ALERT_DELAY_IGNORE = 5 # seconds
 ALERT_PEOPLE = {}
 face_locations = []
 face_encodings = []
-
-# Get a reference to webcam #
-# (the default one)
-# for mac: 1
-# for pi: 0
-CAM_REF = 0
-
-SPI_SPEED_MHZ = 80
+CAM_REF = config.CAM_REF
 
 def load_encoded_files(path2root=PATH_TO_ROOT):
     # go to directory with people sub-directories & get people names
@@ -151,8 +147,6 @@ def start_cam_and_staff(known_face):
     video_capture = cv2.VideoCapture(CAM_REF)
 
     # Initialize some variables
-    # face_locations = []
-    # face_encodings = []
     face_names = []
     process_this_frame = True
 
@@ -170,10 +164,10 @@ def start_cam_and_staff(known_face):
         rgb_small_frame = small_frame[:, :, ::-1]
 
         # Only process every other frame of video to save time
+        thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
         if process_this_frame:
-            encodeThisFrameFaces(rgb_small_frame)
-            # thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
-            # thread.start()
+            # encodeThisFrameFaces(rgb_small_frame)
+            thread.start()
 
         # Display the results
         for (top, right, bottom, left), name in zip(face_locations, face_names):
@@ -191,22 +185,9 @@ def start_cam_and_staff(known_face):
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
-            
-        # Display the resulting image
-        # cv2.imshow('Video', frame)
-
-        # mini led
-        # miniLedImage = np.array(frame)
-        # miniLedImage = cv2.resize(miniLedImage, (240, 240))
-        # pil_image=Image.fromarray(miniLedImage)
-        # st7789.display(pil_image)
-            
-        # Hit 'q' on the keyboard to quit!
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     break
-
         process_this_frame = not process_this_frame
-    # thread.join()
+        
+    thread.join()
 
 if __name__ == '__main__':
     known_face = load_encoded_files()
