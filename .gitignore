@@ -133,3 +133,10 @@ dmypy.json
 api_example/
 
 known_people/
+
+Praca Pisana/WZORdyplomWFA/
+Praca Pisana/*.pdf
+Praca Pisana/*.eps
+Praca Pisana/*.aux
+Praca Pisana/*.toc
+Praca Pisana/*.gz
