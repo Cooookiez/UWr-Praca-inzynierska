@@ -129,6 +129,7 @@ dmypy.json
 .pyre/
 
 .DS_Store
+*.DS_Store
 
 api_example/
 
@@ -140,3 +141,6 @@ Praca Pisana/*.eps
 Praca Pisana/*.aux
 Praca Pisana/*.toc
 Praca Pisana/*.gz
+Praca Pisana/*.bbl
+Praca Pisana/*.big
+Praca Pisana/*.dvi
