@@ -1,5 +1,6 @@
 import os
 import json
+import struct
 import numpy as np
 import cv2
 import time
@@ -7,22 +8,81 @@ import face_recognition
 import threading
 import random
 import pygame
-from PIL import Image
-from playsound import playsound
-
 import config
+import tkinter as tk
+from PIL import ImageTk, Image
+import enum
 
-# Initialize some variablesQ
+# from config
 KNOW_PEOPLE_DIR_PATH_NAME = config.KNOW_PEOPLE_DIR_PATH_NAME
 JSON_FILE_NAME = config.JSON_FILE_NAME
 UNKNOWN_NAME = config.UNKNOWN_NAME
 WELCOMES_DIR_PATH_NAME = config.WELCOMES_DIR_PATH_NAME
 ALERT_DELAY_IGNORE = config.ALERT_DELAY_IGNORE
+CAM_REF = config.CAM_REF
+
+class Mods(enum.Enum):
+    IDLE = 1
+    PROCESSING = 2
+    UNKNOWN = 3
+    KNOWN = 4
+    
+class Mod2Show:
+    time_start = 0
+    time_end = 0
+    name = None
+    activeMode = None
+    modTimes = {
+        Mods.IDLE: -1,         # inf
+        Mods.PROCESSING: 0,    # 0s
+        Mods.UNKNOWN: 3,       # 3s
+        Mods.KNOWN: 6,         # 6s
+    }
+    def __init__(self, appActiveMode, name = None):
+        self.time_start = time.time();
+        self.time_end = self.time_start + self.modTimes[appActiveMode]
+        self.activeMode = appActiveMode
+        if name != None:
+            self.name = name
+    def __lt__(self, other):
+        return self.time_start < other.time_start
+    pass
+
+def dec2hex(dec):
+    return hex(dec)[2:].zfill(2)
+
+def randomHexColor():
+    return "#" + dec2hex(random.randint(0, 255)) + dec2hex(random.randint(0, 255)) + dec2hex(random.randint(0, 255))
+
+# Initialize some variablesQ
 PATH_TO_ROOT = os.getcwd()
 ALERT_PEOPLE = {}
 face_locations = []
 face_encodings = []
-CAM_REF = config.CAM_REF
+appBackground = {
+    Mods.IDLE: '#000000',      # black
+    Mods.PROCESSING: '#4b4b4b', # grey (darker)
+    Mods.UNKNOWN: '#696969',   # gray (lighter)
+    Mods.KNOWN: '#00ff00',     # green
+}
+# appBackground = {
+#     Mods.IDLE: '#ffffff',       # white
+#     Mods.PROCESSING: '#ffff00', # yellow
+#     Mods.UNKNOWN: '#ff00ff',    # magenta
+#     Mods.KNOWN: '#00ffff',      # cyan
+# }
+appImages = {
+    'QuestionMark': '',
+    'Hello': '',
+}
+Tk = None
+mods2ShowQueue = []
+lastMods2Show = None
+appLastColor = None
+appActiveColor = appBackground[Mods.IDLE]
+appActiveImage = None
+appActiveName = None
+appLastMode = None
 
 def load_encoded_files(path2root=PATH_TO_ROOT):
     # go to directory with people sub-directories & get people names
@@ -114,33 +174,49 @@ def encodeThisFrameFaces(frame):
     
     for face in face_names_to_alert:
         say_hello(face)
+    # back2idle()
     pass
 
 def say_hello(name, path2root=PATH_TO_ROOT):
+    global addPersoneMode2queue
+    
+    appActiveName = name
+    
+    # get mp3' dir
+    mp3s = []
+    path_to_welcomes_for_name = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
     if name == "Unknown":
+        addPersoneMode2queue(Mods.UNKNOWN)
+        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, "welcomes_unknown")
         pass
     else:
-        path_to_welcomes_for_name = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME, name, WELCOMES_DIR_PATH_NAME)
+        addPersoneMode2queue(Mods.KNOWN, name)
+        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, name, WELCOMES_DIR_PATH_NAME)
         
-        # get mp3's
-        mp3s = []
-        for file in os.listdir(path_to_welcomes_for_name):
-            print(file)
-            extension = os.path.splitext(file)[1] # extension of file
-            print(extension)
-            if extension.lower() == ".mp3":
-                mp3s.append(os.path.join(path_to_welcomes_for_name, file))
-        print(mp3s)        
+    # get mp3s
+    for file in os.listdir(path_to_welcomes_for_name):
+        print(file)
+        extension = os.path.splitext(file)[1] # extension of file
+        print(extension)
+        if extension.lower() == ".mp3":
+            mp3s.append(os.path.join(path_to_welcomes_for_name, file))
+    print(mp3s)        
         
-        # rand file to play
-        mp3_to_paly = random.choice(mp3s)
-        print(mp3_to_paly)
-        
-        # play      
-        # playsound(mp3_to_paly)
-        pygame.mixer.init()
-        pygame.mixer.music.load(mp3_to_paly)
-        pygame.mixer.music.play()
+    # rand file to play
+    mp3_to_paly = random.choice(mp3s)
+    print(mp3_to_paly)
+    
+    # play      
+    pygame.mixer.init()
+    pygame.mixer.music.load(mp3_to_paly)
+    pygame.mixer.music.play()
+    while pygame.mixer.get_busy() == True:
+        continue
+    # back2idle()
+    pass
+
+def addPersoneMode2queue(mode, name = None):
+    mods2ShowQueue.append(Mod2Show(mode, name))
     pass
 
 def start_cam_and_staff(known_face):
@@ -152,22 +228,21 @@ def start_cam_and_staff(known_face):
 
     # start
     while True:
-    
         # Grab a single frame of video
         ret, frame = video_capture.read()
-
         # Resize frame of video to 1/4 size for faster face recognition processing
         # small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = small_frame[:, :, ::-1]
-
         # Only process every other frame of video to save time
         thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
         if process_this_frame:
             # encodeThisFrameFaces(rgb_small_frame)
+            print("appActiveColor: ", appActiveColor, end="\t\t")
             thread.start()
+            # thread.join()
+            
 
         # Display the results
         for (top, right, bottom, left), name in zip(face_locations, face_names):
@@ -186,9 +261,50 @@ def start_cam_and_staff(known_face):
             cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
 
         process_this_frame = not process_this_frame
-        
-    thread.join()
+        screenVisualization();
+
+def screenVisualization():
+    global appLastMode
+    global lastMods2Show
+    print(f"\t|{mods2ShowQueue}|")
+    if len(mods2ShowQueue) > 0:
+        mods2ShowQueue.sort()
+        # is queue itme still valid
+        if time.time() > mods2ShowQueue[0].time_end:
+            # pop
+            mods2ShowQueue.pop(0)
+            screenVisualization()
+            pass
+        else:
+            activeMode2show = mods2ShowQueue[0]
+            # change only if mod2show is new
+            if activeMode2show != lastMods2Show:
+                Tk.configure(background=appBackground[activeMode2show.activeMode])
+                Tk.update()
+                lastMods2Show = activeMode2show
+                appLastMode = activeMode2show.activeMode;
+                pass
+            pass
+        pass
+    else:
+        # change to idle (expect it is not idle)
+        if appLastMode != Mods.IDLE:
+            Tk.configure(background=appBackground[Mods.IDLE])
+            Tk.update()
+    
+        appLastMode = Mods.IDLE;
+        pass
+    # Tk.update()
 
 if __name__ == '__main__':
+    # Tkiner app
+
+    Tk = tk.Tk()    
+    Tk.title("Face Recognition")
+    # Tk.attributes("-fullscreen", True)
+    Tk.configure(background=appBackground[Mods.IDLE])
+    Tk.update()
+    
     known_face = load_encoded_files()
     start_cam_and_staff(known_face)
+    
