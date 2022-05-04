@@ -8,7 +8,7 @@ CAM_REF = 1 # mac=1, pi=0
 CAM_ROTATION = ch.rotate[0] # 0, 90, 180, 270
 
 # # # # # # # # # # #
-#  NOT SO IMPORTANT #
+# NOT SOO IMPORTANT #
 # # # # # # # # # # #
 
 valid_image_exts = [".jpg", ".jpeg", ".png"]
