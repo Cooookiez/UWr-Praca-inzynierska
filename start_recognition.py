@@ -9,6 +9,7 @@ import threading
 import random
 import pygame
 import config
+import config_helper as ch
 import tkinter as tk
 from PIL import ImageTk, Image
 import enum
@@ -47,12 +48,6 @@ class Mod2Show:
     def __lt__(self, other):
         return self.time_start < other.time_start
     pass
-
-def dec2hex(dec):
-    return hex(dec)[2:].zfill(2)
-
-def randomHexColor():
-    return "#" + dec2hex(random.randint(0, 255)) + dec2hex(random.randint(0, 255)) + dec2hex(random.randint(0, 255))
 
 # Initialize some variablesQ
 PATH_TO_ROOT = os.getcwd()
@@ -221,7 +216,7 @@ def addPersoneMode2queue(mode, name = None):
 
 def start_cam_and_staff(known_face):
     video_capture = cv2.VideoCapture(CAM_REF)
-
+    
     # Initialize some variables
     face_names = []
     process_this_frame = True
@@ -230,6 +225,9 @@ def start_cam_and_staff(known_face):
     while True:
         # Grab a single frame of video
         ret, frame = video_capture.read()
+        # rotate frame if needed
+        if config.CAM_ROTATION != ch.rotate[0]:
+            frame = cv2.rotate(frame, config.CAM_ROTATION)
         # Resize frame of video to 1/4 size for faster face recognition processing
         # small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
         small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
