@@ -1,9 +1,7 @@
 import tkinter as tk
-import time
 from PIL import ImageTk, Image
 
 Tk = tk.Tk()
-
 Tk.title("Face Recognition")
 
 Tk.configure(
@@ -11,9 +9,7 @@ Tk.configure(
     )
 
 a = input("Nowy kolor")
-Tk.configure(
-    background='#00ff00'
-    )
+Tk.configure(background='#00ff00')
 
 a = input("Image is next")
 image1 = Image.open("../../screen_images/Unknow person.png")
