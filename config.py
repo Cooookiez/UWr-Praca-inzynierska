@@ -5,7 +5,7 @@ import config_helper as ch
 # # # # # # # # # # #
 
 CAM_REF = 1 # mac=1, pi=0
-CAM_ROTATION = ch.rotate[0] # 0, 90, 180, 270
+CAM_ROTATION = ch.rotate[0] # 0, 90, 180 (moja obudowa), 270
 
 # # # # # # # # # # #
 # NOT SOO IMPORTANT #

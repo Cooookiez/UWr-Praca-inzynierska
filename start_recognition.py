@@ -163,7 +163,7 @@ def encodeThisFrameFaces(frame):
             ALERT_PEOPLE[regognized_face] = time.time()
             face_names_to_alert.append(regognized_face)
             pass
-    # print(f"[{threading.active_count()}] ", *face_names_to_alert, f" ({(time.time() - timeStart):.4}s)\t\t\t{time_differences}")
+    print(f"[{threading.active_count()}] ", *face_names_to_alert, f" ({(time.time() - timeStart):.4}s)\t\t\t{time_differences}")
     
     for face in face_names_to_alert:
         if name == "Unknown":
@@ -235,15 +235,16 @@ def start_cam_and_staff(known_face):
             frame = cv2.rotate(frame, config.CAM_ROTATION)
         # Resize frame of video to 1/4 size for faster face recognition processing
         # small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-        small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+        # small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+        small_frame = frame
         # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
         rgb_small_frame = small_frame[:, :, ::-1]
         # Only process every other frame of video to save time
-        thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
+        # thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
         if process_this_frame:
-            # encodeThisFrameFaces(rgb_small_frame)
+            encodeThisFrameFaces(rgb_small_frame)
             # print("appActiveColor: ", appActiveColor, end="\t\t")
-            thread.start()
+            # thread.start()
             # thread.join()
             
 
