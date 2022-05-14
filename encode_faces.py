@@ -152,7 +152,7 @@ def encode_for_all(path2root=PATH_TO_ROOT):
         print(end="\n\n")
     pass
 
-def encode_for(name, path2root=PATH_TO_ROOT):
+def encode_for(name):
     if (name == "welcomes_unknown"):
         pass
     else:

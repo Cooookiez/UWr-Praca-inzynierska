@@ -1,3 +1,3 @@
-# UWr-praca-inzynierska
+# Praca inżynierska – Inteligentne powitanie na podstawie rozpoznawania twarzy (Program)
 
-Praca Inżynierska / Engineering thesis
+Praca Inżynierska / Engineering paper

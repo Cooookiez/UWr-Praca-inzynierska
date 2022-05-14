@@ -1,6 +1,7 @@
 import os
 import json
 import struct
+from click import command
 import numpy as np
 import cv2
 import time
@@ -45,6 +46,8 @@ class Mod2Show:
         self.activeMode = appActiveMode
         if name != None:
             self.name = name
+        else:
+            self.name = "Przybyszu"
     def __lt__(self, other):
         return self.time_start < other.time_start
     pass
@@ -60,23 +63,17 @@ appBackground = {
     Mods.UNKNOWN: '#696969',   # gray (lighter)
     Mods.KNOWN: '#00ff00',     # green
 }
-# appBackground = {
-#     Mods.IDLE: '#ffffff',       # white
-#     Mods.PROCESSING: '#ffff00', # yellow
-#     Mods.UNKNOWN: '#ff00ff',    # magenta
-#     Mods.KNOWN: '#00ffff',      # cyan
-# }
 appImages = {
-    'QuestionMark': '',
-    'Hello': '',
+    'QuestionMark': None,
+    'Hello': None,
 }
 Tk = None
 mods2ShowQueue = []
 lastMods2Show = None
 appLastColor = None
 appActiveColor = appBackground[Mods.IDLE]
-appActiveImage = None
-appActiveName = None
+lGreeting = None
+lName = None
 appLastMode = None
 
 def load_encoded_files(path2root=PATH_TO_ROOT):
@@ -124,6 +121,7 @@ def load_encoded_files(path2root=PATH_TO_ROOT):
     return known_face
 
 def encodeThisFrameFaces(frame):
+    # global addPersoneMode2queue
     timeStart = time.time()
     # Find all the faces and face encodings in the current frame of video
     face_locations = face_recognition.face_locations(frame)
@@ -165,15 +163,19 @@ def encodeThisFrameFaces(frame):
             ALERT_PEOPLE[regognized_face] = time.time()
             face_names_to_alert.append(regognized_face)
             pass
-    print(f"[{threading.active_count()}] ", *face_names_to_alert, f" ({(time.time() - timeStart):.4}s)\t\t\t{time_differences}")
+    # print(f"[{threading.active_count()}] ", *face_names_to_alert, f" ({(time.time() - timeStart):.4}s)\t\t\t{time_differences}")
     
     for face in face_names_to_alert:
-        say_hello(face)
+        if name == "Unknown":
+            addPersoneMode2queue(Mods.UNKNOWN)
+        else:
+            addPersoneMode2queue(Mods.KNOWN, name)
+        # say_hello(face)
+        pass
     # back2idle()
     pass
 
 def say_hello(name, path2root=PATH_TO_ROOT):
-    global addPersoneMode2queue
     
     appActiveName = name
     
@@ -181,25 +183,22 @@ def say_hello(name, path2root=PATH_TO_ROOT):
     mp3s = []
     path_to_welcomes_for_name = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
     if name == "Unknown":
-        addPersoneMode2queue(Mods.UNKNOWN)
         path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, "welcomes_unknown")
-        pass
     else:
-        addPersoneMode2queue(Mods.KNOWN, name)
         path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, name, WELCOMES_DIR_PATH_NAME)
         
     # get mp3s
     for file in os.listdir(path_to_welcomes_for_name):
-        print(file)
+        # print(file)
         extension = os.path.splitext(file)[1] # extension of file
-        print(extension)
+        # print(extension)
         if extension.lower() == ".mp3":
             mp3s.append(os.path.join(path_to_welcomes_for_name, file))
-    print(mp3s)        
+    # print(mp3s)        
         
     # rand file to play
     mp3_to_paly = random.choice(mp3s)
-    print(mp3_to_paly)
+    # print(mp3_to_paly)
     
     # play      
     pygame.mixer.init()
@@ -212,6 +211,12 @@ def say_hello(name, path2root=PATH_TO_ROOT):
 
 def addPersoneMode2queue(mode, name = None):
     mods2ShowQueue.append(Mod2Show(mode, name))
+    pass
+
+def printQueue():
+    for person in mods2ShowQueue:
+        print(person.name, end=", ")
+    print()
     pass
 
 def start_cam_and_staff(known_face):
@@ -237,7 +242,7 @@ def start_cam_and_staff(known_face):
         thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
         if process_this_frame:
             # encodeThisFrameFaces(rgb_small_frame)
-            print("appActiveColor: ", appActiveColor, end="\t\t")
+            # print("appActiveColor: ", appActiveColor, end="\t\t")
             thread.start()
             # thread.join()
             
@@ -257,28 +262,47 @@ def start_cam_and_staff(known_face):
             cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
-
         process_this_frame = not process_this_frame
         screenVisualization();
 
 def screenVisualization():
+    printQueue()
     global appLastMode
     global lastMods2Show
-    print(f"\t|{mods2ShowQueue}|")
+    global lGreeting
+    global lName
+    # print(f"\t|{mods2ShowQueue}|")
     if len(mods2ShowQueue) > 0:
         mods2ShowQueue.sort()
         # is queue itme still valid
         if time.time() > mods2ShowQueue[0].time_end:
             # pop
             mods2ShowQueue.pop(0)
+            lGreeting.pack_forget()
+            lName.pack_forget()
             screenVisualization()
             pass
         else:
             activeMode2show = mods2ShowQueue[0]
             # change only if mod2show is new
             if activeMode2show != lastMods2Show:
+                # background color
                 Tk.configure(background=appBackground[activeMode2show.activeMode])
+                lGreeting.configure(background=appBackground[activeMode2show.activeMode])
+                lName.configure(background=appBackground[activeMode2show.activeMode])
+                
+                # zmien imie textu
+                lName.config(text=activeMode2show.name)
+                
+                # wyswietl text
+                lGreeting.pack()
+                lName.pack()
+                
                 Tk.update()
+                if activeMode2show.activeMode == Mods.UNKNOWN:
+                    say_hello("Unknown")
+                else:
+                    say_hello(activeMode2show.name)
                 lastMods2Show = activeMode2show
                 appLastMode = activeMode2show.activeMode;
                 pass
@@ -289,18 +313,31 @@ def screenVisualization():
         if appLastMode != Mods.IDLE:
             Tk.configure(background=appBackground[Mods.IDLE])
             Tk.update()
-    
         appLastMode = Mods.IDLE;
-        pass
-    # Tk.update()
 
 if __name__ == '__main__':
     # Tkiner app
-
-    Tk = tk.Tk()    
+    Tk = tk.Tk()
+    Tk.geometry("480x320")
     Tk.title("Face Recognition")
-    # Tk.attributes("-fullscreen", True)
+    # Tk.attributes("-fullscreen", True) #! fullscreen na puźniej
     Tk.configure(background=appBackground[Mods.IDLE])
+    # labels
+    lGreeting = tk.Label(
+        Tk,
+        anchor="center",
+        text=f"Witaj",
+        fg='#000000',
+        font=("Helvetica", 64, "bold")
+    )
+    lName = tk.Label(
+        Tk,
+        anchor="center",
+        text=f"_____ ___",
+        fg='#000000',
+        font=("Helvetica", 48)
+    )
+    #
     Tk.update()
     
     known_face = load_encoded_files()
