@@ -318,9 +318,9 @@ def screenVisualization():
 if __name__ == '__main__':
     # Tkiner app
     Tk = tk.Tk()
-    Tk.geometry("480x320")
     Tk.title("Face Recognition")
-    # Tk.attributes("-fullscreen", True) #! fullscreen na puźniej
+    # Tk.geometry("480x320")
+    Tk.attributes("-fullscreen", True) #! fullscreen na puźniej
     Tk.configure(background=appBackground[Mods.IDLE])
     # labels
     lGreeting = tk.Label(
