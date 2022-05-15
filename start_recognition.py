@@ -188,9 +188,9 @@ def screenVisualization():
                 lGreeting.configure(background=appBackground[entry.activeMod])
                 lName.configure(background=appBackground[entry.activeMod])
                 
-                # zmien imie textu
+                # zmien textu
+                lGreeting.config(text=cf.GREETINGS_WORD)
                 lName.config(text=entry.name)
-                lGreeting.config(text=entry.name)
                 
                 # wyswietl text
                 lGreeting.pack()
