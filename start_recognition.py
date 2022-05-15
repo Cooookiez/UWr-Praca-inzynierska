@@ -1,346 +1,302 @@
+
 import os
-import json
-import struct
-from click import command
-import numpy as np
 import cv2
-import time
-import face_recognition
-import threading
-import random
-import pygame
-import config
-import config_helper as ch
-import tkinter as tk
-from PIL import ImageTk, Image
+import json
 import enum
+import time
+import pygame
+import random
+import numpy as np
+import config as cf
+import tkinter as tk
+import face_recognition
+import config_helper as ch
 
-# from config
-KNOW_PEOPLE_DIR_PATH_NAME = config.KNOW_PEOPLE_DIR_PATH_NAME
-JSON_FILE_NAME = config.JSON_FILE_NAME
-UNKNOWN_NAME = config.UNKNOWN_NAME
-WELCOMES_DIR_PATH_NAME = config.WELCOMES_DIR_PATH_NAME
-ALERT_DELAY_IGNORE = config.ALERT_DELAY_IGNORE
-CAM_REF = config.CAM_REF
-
-class Mods(enum.Enum):
+#* classes
+class Mod(enum.Enum):
     IDLE = 1
     PROCESSING = 2
     UNKNOWN = 3
     KNOWN = 4
-    
+
 class Mod2Show:
     time_start = 0
     time_end = 0
     name = None
-    activeMode = None
-    modTimes = {
-        Mods.IDLE: -1,         # inf
-        Mods.PROCESSING: 0,    # 0s
-        Mods.UNKNOWN: 3,       # 3s
-        Mods.KNOWN: 6,         # 6s
+    activeMod = None
+    durationTimes = {
+        Mod.UNKNOWN: 3, # 3s
+        Mod.KNOWN: 6,   # 6s
     }
-    def __init__(self, appActiveMode, name = None):
-        self.time_start = time.time();
-        self.time_end = self.time_start + self.modTimes[appActiveMode]
-        self.activeMode = appActiveMode
-        if name != None:
-            self.name = name
-        else:
-            self.name = "Przybyszu"
+    
+    def __init__(self, appActiveMode, name=None, timeStart=None, timeEnd=None):
+        self.activeMod = appActiveMode
+        self.name = name or cf.UNKNOWN_DISPLAY_NAME
+        self.time_start = timeStart or time.time()
+        self.time_end = timeEnd or self.time_start + self.durationTimes[self.activeMod]
+        
     def __lt__(self, other):
         return self.time_start < other.time_start
-    pass
 
-# Initialize some variablesQ
-PATH_TO_ROOT = os.getcwd()
-ALERT_PEOPLE = {}
-face_locations = []
-face_encodings = []
-appBackground = {
-    Mods.IDLE: '#000000',      # black
-    Mods.PROCESSING: '#4b4b4b', # grey (darker)
-    Mods.UNKNOWN: '#696969',   # gray (lighter)
-    Mods.KNOWN: '#00ff00',     # green
-}
-appImages = {
-    'QuestionMark': None,
-    'Hello': None,
-}
-Tk = None
-mods2ShowQueue = []
-lastMods2Show = None
-appLastColor = None
-appActiveColor = appBackground[Mods.IDLE]
+#* declare variables with none value
+window = None
 lGreeting = None
 lName = None
-appLastMode = None
+lastEntry = None
 
-def load_encoded_files(path2root=PATH_TO_ROOT):
+#* declare global variables
+PATH_TO_ROOT = os.getcwd()
+appBackground = {
+    Mod.IDLE: '#000000',      # black
+    Mod.PROCESSING: '#4b4b4b', # grey (darker)
+    Mod.UNKNOWN: '#696969',   # gray (lighter)
+    Mod.KNOWN: '#00ff00',     # green
+}
+alertPeople = {}
+mods2ShowQueue = []
+
+#* functions
+def load_encoded_files():
     # go to directory with people sub-directories & get people names
-    people_dir_path = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
+    people_dir_path = os.path.join(PATH_TO_ROOT, cf.KNOW_PEOPLE_DIR_PATH_NAME)
     os.chdir(people_dir_path)
     names = list(filter(os.path.isdir, os.listdir(os.curdir)))
-
+    
     # get path to faces.json
     encoded_faces_json_path = []
     for name in names:
-        if name == "welcomes_unknown":
-            continue
-        encoded_faces_json_path.append(
-            os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME, name, JSON_FILE_NAME)
-        )
-
+        if name != cf.UNKNOWN_WELCOMES_DIR_PATH:
+            encoded_faces_json_path.append(
+                os.path.join(PATH_TO_ROOT, cf.KNOW_PEOPLE_DIR_PATH_NAME, name, cf.JSON_FILE_NAME)
+            )
+    
     # get file.json to python array
-    encoded_faces = {}
-    for encoded_face_json in encoded_faces_json_path:
-        with open(encoded_face_json) as json_file:
+    encoded_faces_py = {}
+    for encoded_face_json_path in encoded_faces_json_path:
+        with open(encoded_face_json_path) as json_file:
             data = json.load(json_file)
         for name in data:
-            encoded_faces[name] = data[name]
-
+            encoded_faces_py[name] = data[name]
+    
     # get python array to np array
     encoded_faces_np = {}
-    for name in encoded_faces:
+    for name in encoded_faces_py:
         encoded_faces_np[name] = []
-        for encoded_face in encoded_faces[name]:
-            encoded_face_np = np.array(encoded_face)
-            # encoded_face_np = np.ndarray(encoded_face)
-            encoded_faces_np[name].append(encoded_face_np)
-
+        for encoded_face_py in encoded_faces_py[name]:
+            encoded_faces_np[name].append(np.array(encoded_face_py))
+    
     # prepare to return
-    known_face = {
-        "encodings": [],
-        "names": []
+    known_faces = {
+        "encoding": [],
+        "name": []
     }
     for name in encoded_faces_np:
         for encoded_face_np in encoded_faces_np[name]:
-            known_face["names"].append(name)
-            known_face["encodings"].append(encoded_face_np)
+            known_faces["name"].append(name)
+            known_faces["encoding"].append(encoded_face_np)
+    
+    return known_faces
 
-    return known_face
-
-def encodeThisFrameFaces(frame):
-    # global addPersoneMode2queue
-    timeStart = time.time()
+def encodeThisFrameFaces(frame, known_faces):
+    # rotate frame if needed #! ERROR
+    # todo https://pyimagesearch.com/2017/01/02/rotate-images-correctly-with-opencv-and-python/
+    # if cf.CAM_ROTATION != ch.rotate[0]:
+    #     frame = cv2.rotate(frame, cf.CAM_ROTATION)
+        
+    small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+    rgb_small_frame = small_frame[:, :, ::-1]
+    
     # Find all the faces and face encodings in the current frame of video
-    face_locations = face_recognition.face_locations(frame)
-    face_encodings = face_recognition.face_encodings(frame, face_locations)
+    face_locations = face_recognition.face_locations(rgb_small_frame)
+    face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
 
     face_names = []
     for face_encoding in face_encodings:
         # See if the face is a match for the known face(s)
-        matches = face_recognition.compare_faces(known_face["encodings"], face_encoding)
-        name = UNKNOWN_NAME
+        matches = face_recognition.compare_faces(known_faces['encoding'], face_encoding)
+        name = cf.UNKNOWN_NAME
 
         # Or instead, use the known face with the smallest distance to the new face
-        face_distances = face_recognition.face_distance(known_face["encodings"], face_encoding)
+        face_distances = face_recognition.face_distance(known_faces['encoding'], face_encoding)
         best_match_index = np.argmin(face_distances)
         if matches[best_match_index]:
-            name = known_face["names"][best_match_index]
+            name = known_faces['name'][best_match_index]
 
         face_names.append(name)
-    # check if person desnt repeat too soon
-    face_names_to_alert = []
-    time_differences = {}
-    for regognized_face in face_names:
-        if regognized_face in ALERT_PEOPLE.keys():
-            # check last seen time
-            time_difference = time.time() - ALERT_PEOPLE[regognized_face]
-            time_differences[regognized_face] = time_difference
-            ALERT_PEOPLE[regognized_face] = time.time()
-            if time_difference >= ALERT_DELAY_IGNORE:
-                # notify
-                face_names_to_alert.append(regognized_face)
-                pass
-            else:
-                # skip
-                pass
-            pass
-        else:
-            # add to ALERT_PEOPLE
-            # notify
-            ALERT_PEOPLE[regognized_face] = time.time()
-            face_names_to_alert.append(regognized_face)
-            pass
-    print(f"[{threading.active_count()}] ", *face_names_to_alert, f" ({(time.time() - timeStart):.4}s)\t\t\t{time_differences}")
-    
-    for face in face_names_to_alert:
-        if name == "Unknown":
-            addPersoneMode2queue(Mods.UNKNOWN)
-        else:
-            addPersoneMode2queue(Mods.KNOWN, name)
-        # say_hello(face)
-        pass
-    # back2idle()
-    pass
+    return face_names
 
-def say_hello(name, path2root=PATH_TO_ROOT):
-    
-    appActiveName = name
-    
-    # get mp3' dir
-    mp3s = []
-    path_to_welcomes_for_name = os.path.join(path2root, KNOW_PEOPLE_DIR_PATH_NAME)
-    if name == "Unknown":
-        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, "welcomes_unknown")
+def names2alert(face_names):
+    face_names2alert = []
+    for face_name in face_names:
+        if face_name in alertPeople.keys():
+            # check last seen time
+            time_difference = time.time() - alertPeople[face_name]
+            if time_difference >= cf.ALERT_DELAY_IGNORE:
+                # notify
+                face_names2alert.append(face_name)
+            alertPeople[face_name] = time.time()
+        else:
+            # notify
+            alertPeople[face_name] = time.time()
+            face_names2alert.append(face_name)
+    return face_names2alert
+
+def addPersone2queue(mode, name = None):
+    mods2ShowQueue.sort()
+    if len(mods2ShowQueue) > 0:
+        lastPersoneEndTime = mods2ShowQueue[-1].time_end
+        mods2ShowQueue.append(Mod2Show(mode, name, timeStart=lastPersoneEndTime))
     else:
-        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, name, WELCOMES_DIR_PATH_NAME)
+        mods2ShowQueue.append(Mod2Show(mode, name))
+
+def printQueue(end="\n"):
+    print('[', end='')
+    for entry in mods2ShowQueue:
+        print(entry.name, end=", ")
+    print(']', end=end)
+
+def sayHello(name):
+    # get mp3' dir
+    path_to_welcomes_for_name = os.path.join(PATH_TO_ROOT, cf.KNOW_PEOPLE_DIR_PATH_NAME)
+    if name == cf.UNKNOWN_NAME:
+        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, cf.UNKNOWN_WELCOMES_DIR_PATH)
+    else:
+        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, name, cf.WELCOMES_DIR_PATH_NAME)
         
     # get mp3s
+    mp3s = []
     for file in os.listdir(path_to_welcomes_for_name):
         # print(file)
         extension = os.path.splitext(file)[1] # extension of file
         # print(extension)
         if extension.lower() == ".mp3":
             mp3s.append(os.path.join(path_to_welcomes_for_name, file))
-    # print(mp3s)        
-        
-    # rand file to play
+            
+    # random file to play
     mp3_to_paly = random.choice(mp3s)
-    # print(mp3_to_paly)
-    
-    # play      
+        
+    # play
     pygame.mixer.init()
     pygame.mixer.music.load(mp3_to_paly)
     pygame.mixer.music.play()
-    while pygame.mixer.get_busy() == True:
-        continue
-    # back2idle()
     pass
-
-def addPersoneMode2queue(mode, name = None):
-    mods2ShowQueue.append(Mod2Show(mode, name))
-    pass
-
-def printQueue():
-    for person in mods2ShowQueue:
-        print(person.name, end=", ")
-    print()
-    pass
-
-def start_cam_and_staff(known_face):
-    video_capture = cv2.VideoCapture(CAM_REF)
-    
-    # Initialize some variables
-    face_names = []
-    process_this_frame = True
-
-    # start
-    while True:
-        # Grab a single frame of video
-        ret, frame = video_capture.read()
-        # rotate frame if needed
-        if config.CAM_ROTATION != ch.rotate[0]:
-            frame = cv2.rotate(frame, config.CAM_ROTATION)
-        # Resize frame of video to 1/4 size for faster face recognition processing
-        # small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-        # small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-        small_frame = frame
-        # Convert the image from BGR color (which OpenCV uses) to RGB color (which face_recognition uses)
-        rgb_small_frame = small_frame[:, :, ::-1]
-        # Only process every other frame of video to save time
-        # thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
-        if process_this_frame:
-            encodeThisFrameFaces(rgb_small_frame)
-            # print("appActiveColor: ", appActiveColor, end="\t\t")
-            # thread.start()
-            # thread.join()
-            
-
-        # Display the results
-        for (top, right, bottom, left), name in zip(face_locations, face_names):
-            # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-            top *= 2
-            right *= 2
-            bottom *= 2
-            left *= 2
-
-            # Draw a box around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-
-            # Draw a label with a name below the face
-            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-            font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
-        process_this_frame = not process_this_frame
-        screenVisualization();
 
 def screenVisualization():
-    printQueue()
-    global appLastMode
-    global lastMods2Show
+    # global appLastMode
+    global lastEntry
     global lGreeting
     global lName
-    # print(f"\t|{mods2ShowQueue}|")
+    global window
+    
     if len(mods2ShowQueue) > 0:
         mods2ShowQueue.sort()
-        # is queue itme still valid
-        if time.time() > mods2ShowQueue[0].time_end:
-            # pop
+        
+        # is queues entry still valid
+        # if not, delete and go to next
+        if time.time() >= mods2ShowQueue[0].time_end:
             mods2ShowQueue.pop(0)
             lGreeting.pack_forget()
             lName.pack_forget()
             screenVisualization()
-            pass
+            
+        # queues entry is still valid
         else:
-            activeMode2show = mods2ShowQueue[0]
-            # change only if mod2show is new
-            if activeMode2show != lastMods2Show:
+            entry = mods2ShowQueue[0]
+            if entry != lastEntry:
                 # background color
-                Tk.configure(background=appBackground[activeMode2show.activeMode])
-                lGreeting.configure(background=appBackground[activeMode2show.activeMode])
-                lName.configure(background=appBackground[activeMode2show.activeMode])
+                window.configure(background=appBackground[entry.activeMod])
+                lGreeting.configure(background=appBackground[entry.activeMod])
+                lName.configure(background=appBackground[entry.activeMod])
                 
-                # zmien imie textu
-                lName.config(text=activeMode2show.name)
+                # zmien textu
+                lGreeting.config(text=cf.GREETINGS_WORD)
+                lName.config(text=entry.name)
                 
                 # wyswietl text
                 lGreeting.pack()
                 lName.pack()
                 
-                Tk.update()
-                if activeMode2show.activeMode == Mods.UNKNOWN:
-                    say_hello("Unknown")
+                # render
+                window.update()
+                
+                # play sound
+                if entry.activeMod == Mod.UNKNOWN:
+                    sayHello(cf.UNKNOWN_NAME)
                 else:
-                    say_hello(activeMode2show.name)
-                lastMods2Show = activeMode2show
-                appLastMode = activeMode2show.activeMode;
-                pass
-            pass
-        pass
+                    sayHello(entry.name)
+                
+                lastEntry = entry
+    
+    # queue is empty, go to IDLE
     else:
-        # change to idle (expect it is not idle)
-        if appLastMode != Mods.IDLE:
-            Tk.configure(background=appBackground[Mods.IDLE])
-            Tk.update()
-        appLastMode = Mods.IDLE;
+        lGreeting.pack_forget()
+        lName.pack_forget()
+        window.configure(background=appBackground[Mod.IDLE])
+        window.update()
 
+def mainloop(known_faces):
+    # get reference to camera
+    video_capture = cv2.VideoCapture(cf.CAM_REF)
+    
+    # Initialize some variables
+    process_this_frame = True
+    
+    # loop
+    while True:
+        # print(random.randint(100000, 999999))
+        # Grab a single frame of video
+        ret, frame = video_capture.read()
+        
+        # evryy second frame
+        if process_this_frame:
+            # get all faces in frame
+            names = encodeThisFrameFaces(frame, known_faces)
+            print(random.randint(100000, 999999), names)
+            
+            # get faces taht do not repeet too soon
+            names = names2alert(names)
+            print(random.randint(10000000, 99999999), names)
+            
+            # add peaple to queue
+            for name in names:
+                if name == cf.UNKNOWN_NAME:
+                    addPersone2queue(Mod.UNKNOWN)
+                else:
+                    addPersone2queue(Mod.KNOWN, name)
+            
+            printQueue()
+            screenVisualization()
+
+        process_this_frame = not process_this_frame
+
+#* main
 if __name__ == '__main__':
-    # Tkiner app
-    Tk = tk.Tk()
-    Tk.title("Face Recognition")
-    # Tk.geometry("480x320")
-    Tk.attributes("-fullscreen", True) #! fullscreen na puźniej
-    Tk.configure(background=appBackground[Mods.IDLE])
-    # labels
+    
+    # create app window
+    window = tk.Tk()
+    window.title("Face Recognition")
+    #//window.geometry("480x320")
+    window.attributes("-fullscreen", True)
+    window.configure(background=appBackground[Mod.IDLE])
+    
+    # window labels
     lGreeting = tk.Label(
-        Tk,
+        window,
         anchor="center",
-        text=f"Witaj",
+        text=cf.GREETINGS_WORD,
         fg='#000000',
         font=("Helvetica", 64, "bold")
     )
     lName = tk.Label(
-        Tk,
+        window,
         anchor="center",
         text=f"_____ ___",
         fg='#000000',
         font=("Helvetica", 48)
     )
-    #
-    Tk.update()
     
-    known_face = load_encoded_files()
-    start_cam_and_staff(known_face)
+    #window.update()
     
+    # load known faces
+    known_faces = load_encoded_files()
+    mainloop(known_faces)
