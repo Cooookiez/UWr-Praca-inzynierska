@@ -1,9 +1,9 @@
 
-
 import os
 import cv2
 import json
 import enum
+import time
 import random
 import numpy as np
 import config as cf
@@ -31,6 +31,7 @@ appBackground = {
     Mods.UNKNOWN: '#696969',   # gray (lighter)
     Mods.KNOWN: '#00ff00',     # green
 }
+alertPeople = {}
 
 #* functions
 def load_encoded_files():
@@ -74,6 +75,49 @@ def load_encoded_files():
     
     return known_faces
 
+def encodeThisFrameFaces(frame, known_faces):
+    # rotate frame if needed
+    if cf.CAM_ROTATION != ch.rotate[0]:
+        frame = cv2.rotate(frame, ch.CAM_ROTATION)
+        
+    small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+    rgb_small_frame = small_frame[:, :, ::-1]
+    
+    # Find all the faces and face encodings in the current frame of video
+    face_locations = face_recognition.face_locations(rgb_small_frame)
+    face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+
+    face_names = []
+    for face_encoding in face_encodings:
+        # See if the face is a match for the known face(s)
+        matches = face_recognition.compare_faces(known_faces['encoding'], face_encoding)
+        name = cf.UNKNOWN_NAME
+
+        # Or instead, use the known face with the smallest distance to the new face
+        face_distances = face_recognition.face_distance(known_faces['encoding'], face_encoding)
+        best_match_index = np.argmin(face_distances)
+        if matches[best_match_index]:
+            name = known_faces['name'][best_match_index]
+
+        face_names.append(name)
+    return face_names
+
+def names2alert(face_names):
+    face_names2alert = []
+    for face_name in face_names:
+        if face_name in alertPeople.keys():
+            # check last seen time
+            time_difference = time.time() - alertPeople[face_name]
+            if time_difference >= cf.ALERT_DELAY_IGNORE:
+                # notify
+                face_names2alert.append(face_name)
+            alertPeople[face_name] = time.time()
+        else:
+            # notify
+            alertPeople[face_name] = time.time()
+            face_names2alert.append(face_name)
+    return face_names2alert
+
 def mainloop(known_faces):
     # get reference to camera
     video_capture = cv2.VideoCapture(cf.CAM_REF)
@@ -89,31 +133,13 @@ def mainloop(known_faces):
         
         # evryy second frame
         if process_this_frame:
-            # rotate frame if needed
-            if cf.CAM_ROTATION != ch.rotate[0]:
-                frame = cv2.rotate(frame, ch.CAM_ROTATION)
-                
-            small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
-            rgb_small_frame = small_frame[:, :, ::-1]
+            # get all faces in frame
+            names = encodeThisFrameFaces(frame, known_faces)
+            print(random.randint(100000, 999999), names)
             
-            # Find all the faces and face encodings in the current frame of video
-            face_locations = face_recognition.face_locations(rgb_small_frame)
-            face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
-        
-            face_names = []
-            for face_encoding in face_encodings:
-                # See if the face is a match for the known face(s)
-                matches = face_recognition.compare_faces(known_faces['encoding'], face_encoding)
-                name = cf.UNKNOWN_NAME
-
-                # Or instead, use the known face with the smallest distance to the new face
-                face_distances = face_recognition.face_distance(known_faces['encoding'], face_encoding)
-                best_match_index = np.argmin(face_distances)
-                if matches[best_match_index]:
-                    name = known_faces['name'][best_match_index]
-
-                face_names.append(name)
-            print(face_names)
+            # get faces taht do not repeet too soon
+            names = names2alert(names)
+            print(random.randint(10000000, 99999999), names)
 
         process_this_frame = not process_this_frame
 
