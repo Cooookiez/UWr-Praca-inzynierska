@@ -1,10 +1,10 @@
 
 import os
-from turtle import end_fill
 import cv2
 import json
 import enum
 import time
+import pygame
 import random
 import numpy as np
 import config as cf
@@ -156,9 +156,28 @@ def printQueue(end="\n"):
 
 def sayHello(name):
     # get mp3' dir
+    path_to_welcomes_for_name = os.path.join(PATH_TO_ROOT, cf.KNOW_PEOPLE_DIR_PATH_NAME)
+    if name == cf.UNKNOWN_NAME:
+        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, cf.UNKNOWN_WELCOMES_DIR_PATH)
+    else:
+        path_to_welcomes_for_name = os.path.join(path_to_welcomes_for_name, name, cf.WELCOMES_DIR_PATH_NAME)
+        
     # get mp3s
+    mp3s = []
+    for file in os.listdir(path_to_welcomes_for_name):
+        # print(file)
+        extension = os.path.splitext(file)[1] # extension of file
+        # print(extension)
+        if extension.lower() == ".mp3":
+            mp3s.append(os.path.join(path_to_welcomes_for_name, file))
+            
     # random file to play
+    mp3_to_paly = random.choice(mp3s)
+        
     # play
+    pygame.mixer.init()
+    pygame.mixer.music.load(mp3_to_paly)
+    pygame.mixer.music.play()
     pass
 
 def screenVisualization():
