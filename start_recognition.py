@@ -1,11 +1,15 @@
 
 
-import tkinter as tk
 import os
-import enum
-import config as cf
+import cv2
 import json
+import enum
+import random
 import numpy as np
+import config as cf
+import tkinter as tk
+import face_recognition
+import config_helper as ch
 
 #* classes
 class Mods(enum.Enum):
@@ -55,20 +59,63 @@ def load_encoded_files():
     encoded_faces_np = {}
     for name in encoded_faces_py:
         encoded_faces_np[name] = []
-        for encoded_face_py in encoded_faces_py:
+        for encoded_face_py in encoded_faces_py[name]:
             encoded_faces_np[name].append(np.array(encoded_face_py))
     
     # prepare to return
     known_faces = {
-        "encodings": [],
-        "names": []
+        "encoding": [],
+        "name": []
     }
     for name in encoded_faces_np:
         for encoded_face_np in encoded_faces_np[name]:
-            known_faces["names"].append(name)
-            known_faces["encodings"].append(encoded_face_np)
+            known_faces["name"].append(name)
+            known_faces["encoding"].append(encoded_face_np)
     
     return known_faces
+
+def mainloop(known_faces):
+    # get reference to camera
+    video_capture = cv2.VideoCapture(cf.CAM_REF)
+    
+    # Initialize some variables
+    process_this_frame = True
+    
+    # loop
+    while True:
+        # print(random.randint(100000, 999999))
+        # Grab a single frame of video
+        ret, frame = video_capture.read()
+        
+        # evryy second frame
+        if process_this_frame:
+            # rotate frame if needed
+            if cf.CAM_ROTATION != ch.rotate[0]:
+                frame = cv2.rotate(frame, ch.CAM_ROTATION)
+                
+            small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+            rgb_small_frame = small_frame[:, :, ::-1]
+            
+            # Find all the faces and face encodings in the current frame of video
+            face_locations = face_recognition.face_locations(rgb_small_frame)
+            face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+        
+            face_names = []
+            for face_encoding in face_encodings:
+                # See if the face is a match for the known face(s)
+                matches = face_recognition.compare_faces(known_faces['encoding'], face_encoding)
+                name = cf.UNKNOWN_NAME
+
+                # Or instead, use the known face with the smallest distance to the new face
+                face_distances = face_recognition.face_distance(known_faces['encoding'], face_encoding)
+                best_match_index = np.argmin(face_distances)
+                if matches[best_match_index]:
+                    name = known_faces['name'][best_match_index]
+
+                face_names.append(name)
+            print(face_names)
+
+        process_this_frame = not process_this_frame
 
 #* main
 if __name__ == '__main__':
@@ -99,5 +146,5 @@ if __name__ == '__main__':
     #window.update()
     
     # load known faces
-    known_face = load_encoded_files()
-    print(known_face)
+    known_faces = load_encoded_files()
+    mainloop(known_faces)
