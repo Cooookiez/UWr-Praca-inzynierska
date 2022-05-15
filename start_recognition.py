@@ -1,5 +1,6 @@
 
 import os
+from turtle import end_fill
 import cv2
 import json
 import enum
@@ -41,6 +42,7 @@ class Mod2Show:
 window = None
 lGreeting = None
 lName = None
+lastEntry = None
 
 #* declare global variables
 PATH_TO_ROOT = os.getcwd()
@@ -147,16 +149,70 @@ def addPersone2queue(mode, name = None):
         mods2ShowQueue.append(Mod2Show(mode, name))
 
 def printQueue(end="\n"):
+    print('[', end='')
     for entry in mods2ShowQueue:
         print(entry.name, end=", ")
-    print(end=end)
+    print(']', end=end)
+
+def sayHello(name):
+    # get mp3' dir
+    # get mp3s
+    # random file to play
+    # play
+    pass
 
 def screenVisualization():
     # global appLastMode
-    # global lastMods2Show
-    # global lGreeting
-    # global lName
-    pass
+    global lastEntry
+    global lGreeting
+    global lName
+    global window
+    
+    if len(mods2ShowQueue) > 0:
+        mods2ShowQueue.sort()
+        
+        # is queues entry still valid
+        # if not, delete and go to next
+        if time.time() >= mods2ShowQueue[0].time_end:
+            mods2ShowQueue.pop(0)
+            lGreeting.pack_forget()
+            lName.pack_forget()
+            screenVisualization()
+            
+        # queues entry is still valid
+        else:
+            entry = mods2ShowQueue[0]
+            if entry != lastEntry:
+                # background color
+                window.configure(background=appBackground[entry.activeMod])
+                lGreeting.configure(background=appBackground[entry.activeMod])
+                lName.configure(background=appBackground[entry.activeMod])
+                
+                # zmien imie textu
+                lName.config(text=entry.name)
+                lGreeting.config(text=entry.name)
+                
+                # wyswietl text
+                lGreeting.pack()
+                lName.pack()
+                
+                # render
+                window.update()
+                
+                # play sound
+                if entry.activeMod == Mod.UNKNOWN:
+                    sayHello(cf.UNKNOWN_NAME)
+                else:
+                    sayHello(entry.name)
+                
+                lastEntry = entry
+    
+    # queue is empty, go to IDLE
+    else:
+        lGreeting.pack_forget()
+        lName.pack_forget()
+        window.configure(background=appBackground[Mod.IDLE])
+        window.update()
 
 def mainloop(known_faces):
     # get reference to camera
@@ -207,7 +263,7 @@ if __name__ == '__main__':
     lGreeting = tk.Label(
         window,
         anchor="center",
-        text=f"Witaj",
+        text=cf.GREETINGS_WORD,
         fg='#000000',
         font=("Helvetica", 64, "bold")
     )

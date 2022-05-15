@@ -19,3 +19,4 @@ UNKNOWN_DISPLAY_NAME = "Przybyszu"
 UNKNOWN_WELCOMES_DIR_PATH = "welcomes_unknown"
 WELCOMES_DIR_PATH_NAME = "welcomes"
 ALERT_DELAY_IGNORE = 5 # seconds
+GREETINGS_WORD = "Witaj"
