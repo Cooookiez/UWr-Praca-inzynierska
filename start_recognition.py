@@ -12,11 +12,30 @@ import face_recognition
 import config_helper as ch
 
 #* classes
-class Mods(enum.Enum):
+class Mod(enum.Enum):
     IDLE = 1
     PROCESSING = 2
     UNKNOWN = 3
     KNOWN = 4
+
+class Mod2Show:
+    time_start = 0
+    time_end = 0
+    name = None
+    activeMod = None
+    durationTimes = {
+        Mod.UNKNOWN: 3, # 3s
+        Mod.KNOWN: 6,   # 6s
+    }
+    
+    def __init__(self, appActiveMode, name=None, timeStart=None, timeEnd=None):
+        self.activeMod = appActiveMode
+        self.name = name or cf.UNKNOWN_DISPLAY_NAME
+        self.time_start = timeStart or time.time()
+        self.time_end = timeEnd or self.time_start + self.durationTimes[self.activeMod]
+        
+    def __lt__(self, other):
+        return self.time_start < other.time_start
 
 #* declare variables with none value
 window = None
@@ -26,12 +45,13 @@ lName = None
 #* declare global variables
 PATH_TO_ROOT = os.getcwd()
 appBackground = {
-    Mods.IDLE: '#000000',      # black
-    Mods.PROCESSING: '#4b4b4b', # grey (darker)
-    Mods.UNKNOWN: '#696969',   # gray (lighter)
-    Mods.KNOWN: '#00ff00',     # green
+    Mod.IDLE: '#000000',      # black
+    Mod.PROCESSING: '#4b4b4b', # grey (darker)
+    Mod.UNKNOWN: '#696969',   # gray (lighter)
+    Mod.KNOWN: '#00ff00',     # green
 }
 alertPeople = {}
+mods2ShowQueue = []
 
 #* functions
 def load_encoded_files():
@@ -118,6 +138,26 @@ def names2alert(face_names):
             face_names2alert.append(face_name)
     return face_names2alert
 
+def addPersone2queue(mode, name = None):
+    mods2ShowQueue.sort()
+    if len(mods2ShowQueue) > 0:
+        lastPersoneEndTime = mods2ShowQueue[-1].time_end
+        mods2ShowQueue.append(Mod2Show(mode, name, timeStart=lastPersoneEndTime))
+    else:
+        mods2ShowQueue.append(Mod2Show(mode, name))
+
+def printQueue(end="\n"):
+    for entry in mods2ShowQueue:
+        print(entry.name, end=", ")
+    print(end=end)
+
+def screenVisualization():
+    # global appLastMode
+    # global lastMods2Show
+    # global lGreeting
+    # global lName
+    pass
+
 def mainloop(known_faces):
     # get reference to camera
     video_capture = cv2.VideoCapture(cf.CAM_REF)
@@ -140,6 +180,16 @@ def mainloop(known_faces):
             # get faces taht do not repeet too soon
             names = names2alert(names)
             print(random.randint(10000000, 99999999), names)
+            
+            # add peaple to queue
+            for name in names:
+                if name == cf.UNKNOWN_NAME:
+                    addPersone2queue(Mod.UNKNOWN)
+                else:
+                    addPersone2queue(Mod.KNOWN, name)
+            
+            printQueue()
+            screenVisualization()
 
         process_this_frame = not process_this_frame
 
@@ -151,7 +201,7 @@ if __name__ == '__main__':
     window.title("Face Recognition")
     window.geometry("480x320")
     #// window.attributes("-fullscreen", True) #! fullscreen na puźniej
-    window.configure(background=appBackground[Mods.IDLE])
+    window.configure(background=appBackground[Mod.IDLE])
     
     # window labels
     lGreeting = tk.Label(

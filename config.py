@@ -15,6 +15,7 @@ valid_image_exts = [".jpg", ".jpeg", ".png"]
 KNOW_PEOPLE_DIR_PATH_NAME = "known_people"
 JSON_FILE_NAME = "faces.json"
 UNKNOWN_NAME = "Unknown"
+UNKNOWN_DISPLAY_NAME = "Przybyszu"
 UNKNOWN_WELCOMES_DIR_PATH = "welcomes_unknown"
 WELCOMES_DIR_PATH_NAME = "welcomes"
 ALERT_DELAY_IGNORE = 5 # seconds
