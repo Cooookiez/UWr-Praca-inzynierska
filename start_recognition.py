@@ -100,7 +100,7 @@ def load_encoded_files():
 def encodeThisFrameFaces(frame, known_faces):
     # rotate frame if needed
     if cf.CAM_ROTATION != ch.rotate[0]:
-        frame = cv2.rotate(frame, ch.CAM_ROTATION)
+        frame = cv2.rotate(frame, cf.CAM_ROTATION)
         
     small_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
     rgb_small_frame = small_frame[:, :, ::-1]
