@@ -120,13 +120,13 @@ def load_encoded_files(path2root=PATH_TO_ROOT):
 
     return known_face
 
-def encodeThisFrameFaces(frame):
+def encodeThisFrameFaces(frame, original):
     # global addPersoneMode2queue
-    timeStart = time.time()
     # Find all the faces and face encodings in the current frame of video
     face_locations = face_recognition.face_locations(frame)
     face_encodings = face_recognition.face_encodings(frame, face_locations)
 
+    timeStart = time.time()
     face_names = []
     for face_encoding in face_encodings:
         # See if the face is a match for the known face(s)
@@ -140,6 +140,7 @@ def encodeThisFrameFaces(frame):
             name = known_face["names"][best_match_index]
 
         face_names.append(name)
+    
     # check if person desnt repeat too soon
     face_names_to_alert = []
     time_differences = {}
@@ -173,6 +174,8 @@ def encodeThisFrameFaces(frame):
         # say_hello(face)
         pass
     # back2idle()
+    
+    return zip(face_locations, face_names)
     pass
 
 def say_hello(name, path2root=PATH_TO_ROOT):
@@ -242,27 +245,30 @@ def start_cam_and_staff(known_face):
         # Only process every other frame of video to save time
         # thread = threading.Thread(target=encodeThisFrameFaces, args=(rgb_small_frame,))
         if process_this_frame:
-            encodeThisFrameFaces(rgb_small_frame)
+            abcd = encodeThisFrameFaces(rgb_small_frame, frame)
             # print("appActiveColor: ", appActiveColor, end="\t\t")
             # thread.start()
             # thread.join()
+
+            # Display the results
+            for (top, right, bottom, left), name in abcd:
+                # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+                top *= 1
+                right *= 1
+                bottom *= 1
+                left *= 1
+
+                # Draw a box around the face
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+
+                # Draw a label with a name below the face
+                cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+            # Display the resulting image
+            cv2.imshow('Video', frame)
             
-
-        # Display the results
-        for (top, right, bottom, left), name in zip(face_locations, face_names):
-            # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-            top *= 2
-            right *= 2
-            bottom *= 2
-            left *= 2
-
-            # Draw a box around the face
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-
-            # Draw a label with a name below the face
-            cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-            font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(frame, name, (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+            
         process_this_frame = not process_this_frame
         screenVisualization();
 
@@ -320,8 +326,8 @@ if __name__ == '__main__':
     # Tkiner app
     Tk = tk.Tk()
     Tk.title("Face Recognition")
-    # Tk.geometry("480x320")
-    Tk.attributes("-fullscreen", True) #! fullscreen na puźniej
+    Tk.geometry("480x320")
+    # Tk.attributes("-fullscreen", True) #! fullscreen na puźniej
     Tk.configure(background=appBackground[Mods.IDLE])
     # labels
     lGreeting = tk.Label(
