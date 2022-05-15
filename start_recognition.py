@@ -274,8 +274,8 @@ if __name__ == '__main__':
     # create app window
     window = tk.Tk()
     window.title("Face Recognition")
-    window.geometry("480x320")
-    #// window.attributes("-fullscreen", True) #! fullscreen na puźniej
+    #//window.geometry("480x320")
+    window.attributes("-fullscreen", True)
     window.configure(background=appBackground[Mod.IDLE])
     
     # window labels
